@@ -47,7 +47,11 @@ export default class Clip extends Vue {
 
     for (let i = 0; i < cycle; i++) {
 
-      let artricX, artricY, artricPath, endPointX, endPointY;
+      let artricX;
+      let artricY;
+      let artricPath;
+      let endPointX;
+      let endPointY;
 
       artricX = startPoint.x + r;
       artricY = i % 2 === 0
