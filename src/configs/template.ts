@@ -1,11 +1,12 @@
 const textTemplate = [
   {
     fontFamily: 'Bradley Hand',
-    fontSize: 36, // vary the font size by detecting the length of text
+    fontSize: 25, // vary the font size by detecting the length of text
     fontWeight: 800,
     fill: '#333',
-    leading: 1.5,
+    leading: 1,
     background: '#ccc',
+    monospaced: true,
     frame: 'none',
     decoration: {
       path: '',
@@ -17,11 +18,12 @@ const textTemplate = [
   },
   {
     fontFamily: 'Chalkboard',
-    fontSize: 48,
+    fontSize: 25,
     fontWeight: 800,
     fill: '#666',
-    leading: 2,
+    leading: 0,
     background: '#000',
+    monospaced: true,
     frame: 'none',
     decoration: {
       path: '',
@@ -33,11 +35,12 @@ const textTemplate = [
   },
   {
     fontFamily: 'Didot',
-    fontSize: 30,
+    fontSize: 25,
     fontWeight: 800,
     fill: '#666',
-    leading: 3,
+    leading: 0,
     background: '#aaa',
+    monospaced: true,
     frame: 'none',
     decoration: {
       path: '',
@@ -49,11 +52,12 @@ const textTemplate = [
   },
   {
     fontFamily: 'Arial Black',
-    fontSize: 30,
+    fontSize: 25,
     fontWeight: 800,
     fill: '#eee',
-    leading: 2.5,
+    leading: 0,
     background: '#aaa',
+    monospaced: true,
     frame: 'none',
     decoration: {
       path: '',

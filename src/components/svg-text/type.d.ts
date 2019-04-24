@@ -6,8 +6,8 @@ export interface ITextBlock {
   color: string | null;
   rotate: number;
   position: {
-    x: string;
-    y: string;
+    cx: string;
+    cy: string;
   };
 }
 
@@ -19,6 +19,7 @@ export interface ITemplate {
   fill: string;
   background: string;
   frame: string;
+  monospaced: boolean;
   decoration: {
     path: string,
     position: {

@@ -13,10 +13,10 @@ export default class TextPersonalize extends Vue {
 
   @Prop({ required: true }) public msg!: string;
   public draw: SVG.Doc | null = null;
-  public textGroup: SVG.Text | null = null;
+  public textGroup: SVG.Set | null = null;
   public actives: IActivesDesign = {
-    textInput: 'EDIT TEXT HERE',
-    template: templateConfig[1],
+    textInput: 'THE \n NORTHERN \n PEOPLE',
+    template: templateConfig[0],
     textBlocks: [],
   };
 
@@ -33,29 +33,36 @@ export default class TextPersonalize extends Vue {
   public init() {
     // @ts-ignore
     this.draw = SVG('svg-displayer');
+    this.draw.viewbox({ x: 0, y: -200, width: 500, height: 500 });
+    this.textGroup = this.draw.set();
     this.updateTextContent(this.actives.textInput);
-    this.updateTemplate();
+  }
+
+  public refreshDisplayer() {
+    // the displayer should updated whenever any change made
   }
 
   public updateTextContent(value: string) {
 
-    if (this.draw !== null) {
+    if (this.draw) {
 
       if (this.textGroup) {
         this.actives.textBlocks = [];
-        this.draw.clear();
+        this.draw.clear(); // clear all the rendered element
+        this.textGroup.clear(); // clear all the element in set
       }
 
       const textInputArray = this.actives.textInput.split('\n');
 
-      this.textGroup = this.draw.text((add) => {
-        textInputArray.forEach((text) => {
-          const textBlock = add.tspan(text).newLine();
-          this.applyTextBlockStyle(textBlock);
-        });
+      textInputArray.forEach((text, index) => {
+        if (this.draw && this.textGroup) {
+          const textBlock = this.draw.text(text);
+          this.textGroup.add(textBlock);
+          this.applyTextBlockStyle(textBlock, index);
+        }
       });
 
-      this.createTextBlockDesign(this.textGroup);
+      this.createTextBlockDesign(this.textGroup as SVG.Set);
     }
   }
 
@@ -78,56 +85,71 @@ export default class TextPersonalize extends Vue {
     : templateConfig[currentIndex + 1];
 
     if (this.textGroup) {
-      const leading = this.actives.template.leading;
-      const tspans: SVG.Set = this.textGroup.lines();
-      this.textGroup.attr({ leading });
       // @ts-ignore
-      (tspans.members).forEach((member) => {
-        this.applyTextBlockStyle(member);
+      this.textGroup.members.forEach((member, index) => {
+        this.applyTextBlockStyle(member, index);
       });
+
+      this.createTextBlockDesign(this.textGroup);
     }
-    this.createTextBlockDesign(this.textGroup as SVG.Text);
   }
 
-  public countFontSizeLevel(textblock: SVG.Element) {
-    const textContent = this.getTextContent(textblock);
-    const textLengthArray = this.actives.textInput
-      .split('\n')
-      .map((text) => text.length);
-    const MaxLength = Math.max(...textLengthArray);
-    return MaxLength / textContent.length;
+  public monospaced(textblock: SVG.Element, fontSize: number) {
+
+
+    let currentWidth: number;
+    // @ts-ignore
+    const widthArray = this.textGroup.members.map((member, index) => member.bbox().width);
+    const maxWidth = Math.max(...widthArray);
+    const allowance = 5;
+    textblock.style('font-size', fontSize);
+    currentWidth = textblock.bbox().width;
+
+    if (currentWidth < (maxWidth - allowance)) {
+      this.monospaced(textblock, fontSize + 1);
+    }
   }
 
-  public getTextContent(textblock: SVG.Element) {
-    return textblock.node.innerHTML;
-  }
-
-  public applyTextBlockStyle(textblock: SVG.Element) {
+  public applyTextBlockStyle(textblock: SVG.Element, index: number) {
     const { fontFamily, fill, leading, background, fontSize, fontWeight } = this.actives.template;
     const centerPosition = this.getCenterPoint();
 
-    if (this.textGroup !== null) {
+    if (this.textGroup) {
 
-      const sizeLevel = this.countFontSizeLevel(textblock);
       textblock
         .style({
           'font-family': fontFamily,
-          'font-size': fontSize * sizeLevel,
           'font-weight': fontWeight,
-          'text-anchor': 'middle', // use for text-align the svg-text
-          'enable-background': true,
-          'background': '#f00',
-          leading,
+          'anchor': 'middle',
           fill,
-        })
-        .addClass('svg-textblock')
-        .dx(centerPosition.cx)
-        .scale(sizeLevel);
+        });
+
+      this.monospaced(textblock, fontSize);
+      const cy = this.countLineHeight(textblock, index, leading);
+      textblock.center(centerPosition.cx, cy);
 
       if (background !== 'none') {
         // this.addTextBackground(textblock, background);
       }
     }
+  }
+
+  public countLineHeight(textblock: SVG.Element, index: number, leading: number) {
+
+    let distance: number;
+    let cy: number;
+
+    if (index > 0) {
+      // @ts-ignore
+      const formerBlock = (this.textGroup as SVG.Set).members[index - 1];
+      distance = formerBlock.bbox().height / 2 + textblock.bbox().height / 2 + leading;
+      cy = formerBlock.bbox().cy;
+    } else {
+      cy = textblock.bbox().cy;
+      distance = leading;
+    }
+
+    return distance + cy;
   }
 
   public getCenterPoint() {
@@ -162,12 +184,12 @@ export default class TextPersonalize extends Vue {
       .x(centerPosition.cx);
   }
 
-  public createTextBlockDesign(textGroup: SVG.Text) {
-    const tspans: SVG.Set = textGroup.lines();
+  public createTextBlockDesign(textGroup: SVG.Set) {
+
     this.actives.textBlocks = [];
     // @ts-ignore
-    tspans.members.forEach((member, index) => {
-      const textblock: ITextBlock = {
+    textGroup.members.forEach((member, index) => {
+      const textBlock: ITextBlock = {
         id: member.node.id,
         index,
         content: member.node.textContent,
@@ -175,11 +197,11 @@ export default class TextPersonalize extends Vue {
         color: member.node.style.fill,
         rotate: 0,
         position: {
-          x: '',
-          y: '',
+          cx: member.cx(),
+          cy: member.cy(),
         },
       };
-      this.actives.textBlocks.push(textblock);
+      this.actives.textBlocks.push(textBlock);
     });
   }
 
