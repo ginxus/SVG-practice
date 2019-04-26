@@ -6,8 +6,8 @@ export interface ITextBlock {
   color: string | null;
   rotate: number;
   position: {
-    cx: string;
-    cy: string;
+    cx: number;
+    cy: number;
   };
 }
 
@@ -17,8 +17,10 @@ export interface ITemplate {
   fontFamily: string;
   leading: number;
   fill: string;
-  background: string;
-  frame: string;
+  anchor: string;
+  background?: IBackgroundConfig;
+  frame?: IFrameConfig;
+  rotate?: number;
   monospaced: boolean;
   decoration: {
     path: string,
@@ -29,8 +31,26 @@ export interface ITemplate {
   };
 }
 
+export interface IBackgroundConfig {
+  fill: string;
+  stroke: {
+    color: string;
+    width: number;
+  };
+  padding: number;
+  radius: number;
+  fullCover: boolean;
+}
+
 export interface IActivesDesign {
   textInput: string;
   textBlocks: ITextBlock[];
   template: ITemplate;
+}
+
+export interface IFrameConfig {
+  color: string;
+  strokeWidth: number;
+  padding: number;
+  radius: number;
 }
