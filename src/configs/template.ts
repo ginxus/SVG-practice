@@ -3,7 +3,18 @@ import { ITemplate } from '@/components/svg-text/type';
 
 const textTemplate: ITemplate[] = [
   {
-    fontFamily: 'Arial black',
+    templateName: 'templateA',
+    fontFamily: 'Arial Black',
+    fontSize: 25,
+    fontWeight: 800,
+    anchor: 'middle',
+    fill: '#eee',
+    leading: 5,
+    monospaced: true,
+  },
+  {
+    templateName: 'templateB',
+    fontFamily: 'Arial',
     fontSize: 25, // vary the font size by detecting the length of text
     fontWeight: 800,
     fill: '#ff9922',
@@ -23,55 +34,37 @@ const textTemplate: ITemplate[] = [
       radius: 0,
     },
     monospaced: true,
-    decoration: {
-      path: '',
-      position: {
-        x: 0,
-        y: 0,
-      },
-    },
   },
   {
-    fontFamily: 'Impact',
+    templateName: 'templateC',
+    fontFamily: 'Phosphate',
     fontSize: 35,
-    fontWeight: 800,
-    fill: '#666',
-    anchor: 'start',
-    leading: 0,
-    monospaced: false,
-    rotate: 20,
-    decoration: {
-      path: '',
-      position: {
-        x: 0,
-        y: 0,
-      },
-    },
-  },
-  {
-    fontFamily: 'Didot',
-    fontSize: 25,
     fontWeight: 800,
     anchor: 'middle',
     fill: '#333',
     leading: 0,
     monospaced: true,
-    decoration: {
-      path: '',
-      position: {
-        x: 0,
-        y: 0,
-      },
+    skew: {
+      x: 0,
+      y: -15,
     },
   },
   {
-    fontFamily: 'Arial Black',
-    fontSize: 25,
+    templateName: 'templateD',
+    fontFamily: 'Impact',
+    fontSize: 45,
     fontWeight: 800,
-    anchor: 'middle',
-    fill: '#eee',
-    leading: 0,
-    monospaced: true,
+    fill: '#fff',
+    anchor: 'start',
+    leading: 10,
+    background: {
+      fill: '#666',
+      stroke: { color: 'none', width: 0 },
+      padding: 10,
+      radius: 0,
+      fullCover: false,
+    },
+    monospaced: false,
     decoration: {
       path: '',
       position: {
