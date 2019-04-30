@@ -3,15 +3,24 @@ export interface ITextBlock {
   index: number;
   content: string | null;
   size: string | null;
-  color: string | null;
-  rotate: number;
+  fill: string | null;
+  fontWeight: string | null;
+  appliedTemplateName: string;
   position: {
     cx: number;
     cy: number;
   };
+  transform: {
+    scaleX: number;
+    scaleY: number;
+    skewX: number;
+    skewY: number;
+    rotate: number;
+  };
 }
 
 export interface ITemplate {
+  templateName: string;
   fontSize: number;
   fontWeight: number;
   fontFamily: string;
@@ -21,8 +30,12 @@ export interface ITemplate {
   background?: IBackgroundConfig;
   frame?: IFrameConfig;
   rotate?: number;
+  skew?: {
+    x: number;
+    y: number;
+  };
   monospaced: boolean;
-  decoration: {
+  decoration?: {
     path: string,
     position: {
       x: number,

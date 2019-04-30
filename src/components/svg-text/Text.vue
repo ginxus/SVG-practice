@@ -1,5 +1,6 @@
 
 <script lang="ts">
+import AppStorage from '@/libs/storage';
 import { Component, Prop, Vue, Watch  } from 'vue-property-decorator';
 import {
   ITextBlock,
@@ -9,6 +10,7 @@ import {
   IFrameConfig,
 } from '@/components/svg-text/type';
 import SVG, { FontData, Element } from 'svg.js';
+import 'svg.draggable.js';
 import templateConfig from '@/configs/template.ts';
 import TextController from './TextController.vue';
 
@@ -19,7 +21,7 @@ export default class TextPersonalize extends Vue {
   public draw: SVG.Doc | null = null;
   public textGroup: SVG.Set | null = null;
   public actives: IActivesDesign = {
-    textInput: 'GET \n EVERYBODY \n MOVE',
+    textInput: 'GET\nEVERYBODY\nMOVE',
     template: templateConfig[0],
     textBlocks: [],
   };
@@ -61,6 +63,7 @@ export default class TextPersonalize extends Vue {
       this.applyTextBlockStyleV2();
       this.applyTemplateFormateV2();
       this.createTextBlockDesign(this.textGroup as SVG.Set);
+      AppStorage.setItem('svg-design', this.actives.textBlocks);
     }
   }
 
@@ -69,6 +72,9 @@ export default class TextPersonalize extends Vue {
     textInputArray.forEach((text, index) => {
       if (this.draw && this.textGroup) {
         const textBlock = this.draw.text(text);
+        // @ts-ignore
+        textBlock.draggable();
+        textBlock.on('dragend', () => { this.updateTextBlockDesign(textBlock); });
         this.textGroup.add(textBlock);
       }
     });
@@ -103,7 +109,7 @@ export default class TextPersonalize extends Vue {
 
   public applyTemplateFormateV2() {
 
-    const { monospaced, background, frame, rotate, leading, fontSize } = this.actives.template;
+    const { monospaced, background, frame, rotate, skew, leading, decoration, fontSize } = this.actives.template;
     const centerPosition = this.getCenterPoint();
 
     if (this.textGroup) {
@@ -118,6 +124,7 @@ export default class TextPersonalize extends Vue {
       this.fixLineHeightV2(leading);
       // @ts-ignore
       if (rotate) { this.rotateV2(rotate); }
+      if (skew) { this.skewV2(skew); }
       if (background) { this.addBackgroundV2(background); }
       if (frame) { this.addFrame(frame); }
     }
@@ -125,20 +132,26 @@ export default class TextPersonalize extends Vue {
 
   public rotateV2(rotate: number) {
     const { anchor } = this.actives.template;
+    const textGroupBBox = (this.textGroup as SVG.Set).bbox();
+    switch (anchor) {
+      case 'start':
+        // @ts-ignore
+        (this.textGroup as SVG.Set).rotate(rotate, textGroupBBox.x, textGroupBBox.y);
+        break;
+      case 'middle':
+        // @ts-ignore
+        (this.textGroup as SVG.Set).rotate(rotate, textGroupBBox.cx, textGroupBBox.cy);
+        break;
+      case 'end':
+        // @ts-ignore
+        (this.textGroup as SVG.Set).rotate(rotate, textGroupBBox.x2, textGroupBBox.y2);
+        break;
+    }
+  }
+
+  public skewV2(skew: { x: number; y: number; }) {
     // @ts-ignore
-    this.textGroup.members.forEach((member) => {
-      switch (anchor) {
-        case 'start':
-          member.rotate(rotate, member.bbox().x, member.bbox().y);
-          break;
-        case 'middle':
-          member.rotate(rotate, member.bbox().cx, member.bbox().cy);
-          break;
-        case 'end':
-          member.rotate(rotate, member.bbox().x2, member.bbox().y2);
-          break;
-      }
-    });
+    this.textGroup.skew(skew.x, skew.y);
   }
 
   public applyTextBlockStyleV2() {
@@ -158,6 +171,7 @@ export default class TextPersonalize extends Vue {
           'font-weight': fontWeight,
           'font-size': fontSize,
           'text-anchor': anchor,
+          'cursor': 'pointer',
           fill,
         });
       });
@@ -206,7 +220,7 @@ export default class TextPersonalize extends Vue {
       const cy = this.draw.node.clientHeight / 2;
       return {cx, cy};
     } else {
-      return {cx: 0, cy: 0};
+      return { cx: 0, cy: 0 };
     }
   }
 
@@ -283,24 +297,39 @@ export default class TextPersonalize extends Vue {
   public createTextBlockDesign(textGroup: SVG.Set) {
 
     this.actives.textBlocks = [];
+    AppStorage.removeItem('svg-design');
     // @ts-ignore
     textGroup.members
-      .filter((member: SVG.Element) => member.node.id.includes('Text'))
-      .forEach((member: SVG.Element, index: number) => {
+      .filter((member: SVG.Text) => member.node.id.includes('Text'))
+      .forEach((member: SVG.Text, index: number) => {
+        const { id, textContent, style } = member.node;
+        const { fontSize: size, fill, fontWeight } = style;
+        const { scaleX, scaleY, skewX, skewY, rotation: rotate } = member.transform();
         const textBlock: ITextBlock = {
-          id: member.node.id,
+          id,
           index,
-          content: member.node.textContent,
-          size: member.node.style.fontSize,
-          color: member.node.style.fill,
-          rotate: 0,
+          content: textContent + '\n',
+          size,
+          fill,
+          fontWeight,
+          appliedTemplateName: this.actives.template.templateName,
           position: {
             cx: member.cx(),
             cy: member.cy(),
           },
+          // @ts-ignore
+          transform: { scaleX, scaleY, skewX, skewY, rotate },
         };
         this.actives.textBlocks.push(textBlock);
       });
+  }
+
+  public updateTextBlockDesign(textBlock: SVG.Text) {
+    const targetBlock = this.actives.textBlocks.find((block) => block.id === textBlock.node.id);
+    if (targetBlock) {
+      targetBlock.position.cx = textBlock.bbox().cx;
+      targetBlock.position.cy = textBlock.bbox().cy;
+    }
   }
 
   public moveTextLeft(textGroup: SVG.Text) {
