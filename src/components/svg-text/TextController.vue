@@ -1,14 +1,28 @@
 <script lang="ts">
-
 import { Vue, Component, Prop } from 'vue-property-decorator';
+import ColorSelector from '@/components/svg-text/ColorBricks.vue';
 import { ITextBlock, ITemplate, IActivesDesign } from '@/components/svg-text/type';
 
-@Component
+@Component({
+  components: {
+    ColorSelector,
+  },
+})
 export default class TextController extends Vue {
   @Prop({ required: true }) public textBlock!: ITextBlock;
+  public showColorSelector: boolean = false;
 
   get serialNumber(): number {
     return this.textBlock.index + 1;
+  }
+
+  public change(para: { [name: string]: any }) {
+    const { type, arg } = para;
+    this.$emit('change', {
+      type,
+      arg,
+      target: this.textBlock,
+    });
   }
 }
 </script>
@@ -25,7 +39,12 @@ export default class TextController extends Vue {
     />
     <span
       class="text-block__color"
-      :style="{ backgroundColor: textBlock.color }"
+      :style="{ backgroundColor: textBlock.fill }"
+      @click="showColorSelector = !showColorSelector"
+    />
+    <color-selector
+      v-if="showColorSelector"
+      @change-color="change"
     />
   </div>
 </template>
@@ -52,6 +71,7 @@ export default class TextController extends Vue {
       margin-left: 12px;
       border-radius: 3px;
       border: 1px solid #aaa;
+      cursor: pointer;
     }
   }
 </style>

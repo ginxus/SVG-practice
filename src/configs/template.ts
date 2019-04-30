@@ -8,7 +8,7 @@ const textTemplate: ITemplate[] = [
     fontSize: 25,
     fontWeight: 800,
     anchor: 'middle',
-    fill: '#eee',
+    fill: 'rgb(238, 238, 238)',
     leading: 5,
     monospaced: true,
   },
@@ -17,7 +17,7 @@ const textTemplate: ITemplate[] = [
     fontFamily: 'Arial',
     fontSize: 25, // vary the font size by detecting the length of text
     fontWeight: 800,
-    fill: '#ff9922',
+    fill: 'rgb(255, 153, 34)',
     anchor: 'middle',
     leading: 5,
     background: {
@@ -41,7 +41,7 @@ const textTemplate: ITemplate[] = [
     fontSize: 35,
     fontWeight: 800,
     anchor: 'middle',
-    fill: '#333',
+    fill: 'rgb(51, 51, 51)',
     leading: 0,
     monospaced: true,
     skew: {
@@ -54,7 +54,7 @@ const textTemplate: ITemplate[] = [
     fontFamily: 'Impact',
     fontSize: 45,
     fontWeight: 800,
-    fill: '#fff',
+    fill: 'rgb(255, 255, 255)',
     anchor: 'start',
     leading: 10,
     background: {

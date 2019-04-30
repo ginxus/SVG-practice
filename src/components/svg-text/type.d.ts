@@ -2,13 +2,15 @@ export interface ITextBlock {
   id: string;
   index: number;
   content: string | null;
-  size: string | null;
+  fontSize: string | null;
   fill: string | null;
   fontWeight: string | null;
   appliedTemplateName: string;
   position: {
     cx: number;
     cy: number;
+    dx?: number;
+    dy?: number;
   };
   transform: {
     scaleX: number;
