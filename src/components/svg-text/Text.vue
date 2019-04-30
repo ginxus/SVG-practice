@@ -54,7 +54,6 @@ export default class TextPersonalize extends Vue {
       const { background, leading } = this.actives.template;
 
       if (this.textGroup) {
-        this.actives.textBlocks = [];
         this.draw.clear(); // clear all the rendered element
         this.textGroup.clear(); // clear all the element in set
       }
@@ -62,7 +61,9 @@ export default class TextPersonalize extends Vue {
       this.insertTextBlock();
       this.applyTextBlockStyleV2();
       this.applyTemplateFormateV2();
+      this.applyCustomStyle();
       this.createTextBlockDesign(this.textGroup as SVG.Set);
+
       AppStorage.setItem('svg-design', this.actives.textBlocks);
     }
   }
@@ -72,9 +73,18 @@ export default class TextPersonalize extends Vue {
     textInputArray.forEach((text, index) => {
       if (this.draw && this.textGroup) {
         const textBlock = this.draw.text(text);
+        const para = {
+          type: 'position',
+          target: index,
+          arg: {
+            x: textBlock.bbox().x,
+            y: textBlock.bbox().y,
+          },
+        };
         // @ts-ignore
         textBlock.draggable();
-        textBlock.on('dragend', () => { this.updateTextBlockDesign(textBlock); });
+        textBlock.on('dragend', () => { this.updateTextBlockDesign(para); });
+        textBlock.animate({ ease: '>', duration: 200, delay: 100 * index }).scale(2.5, 2.5).reverse();
         this.textGroup.add(textBlock);
       }
     });
@@ -155,17 +165,13 @@ export default class TextPersonalize extends Vue {
   }
 
   public applyTextBlockStyleV2() {
-    const {
-      fill,
-      anchor,
-      fontSize,
-      fontFamily,
-      fontWeight,
-    } = this.actives.template;
+
+    const { fill, anchor, fontSize, fontFamily, fontWeight } = this.actives.template;
 
     if (this.textGroup) {
       // @ts-ignore
       this.textGroup.members.forEach((member, index) => {
+
         member.style({
           'font-family': fontFamily,
           'font-weight': fontWeight,
@@ -175,6 +181,25 @@ export default class TextPersonalize extends Vue {
           fill,
         });
       });
+    }
+  }
+
+  public applyCustomStyle() {
+    if (this.textGroup) {
+
+      this.actives.textBlocks
+        .filter((textblock) => {
+          const currentTemplate = templateConfig.find((template) => {
+            return template.templateName === textblock.appliedTemplateName;
+          });
+          return textblock.fill !== (currentTemplate as ITemplate).fill;
+        })
+        .forEach((textblock) => {
+          const index = this.actives.textBlocks.indexOf(textblock);
+          // @ts-ignore
+          const targetBlock = this.textGroup.get(index);
+          if (targetBlock) { targetBlock.style('fill', textblock.fill); }
+        });
     }
   }
 
@@ -303,19 +328,19 @@ export default class TextPersonalize extends Vue {
       .filter((member: SVG.Text) => member.node.id.includes('Text'))
       .forEach((member: SVG.Text, index: number) => {
         const { id, textContent, style } = member.node;
-        const { fontSize: size, fill, fontWeight } = style;
+        const { fontSize, fill, fontWeight } = style;
         const { scaleX, scaleY, skewX, skewY, rotation: rotate } = member.transform();
         const textBlock: ITextBlock = {
           id,
           index,
           content: textContent + '\n',
-          size,
+          fontSize,
           fill,
           fontWeight,
           appliedTemplateName: this.actives.template.templateName,
           position: {
-            cx: member.cx(),
-            cy: member.cy(),
+            cx: member.bbox().cx,
+            cy: member.bbox().cy,
           },
           // @ts-ignore
           transform: { scaleX, scaleY, skewX, skewY, rotate },
@@ -324,28 +349,16 @@ export default class TextPersonalize extends Vue {
       });
   }
 
-  public updateTextBlockDesign(textBlock: SVG.Text) {
-    const targetBlock = this.actives.textBlocks.find((block) => block.id === textBlock.node.id);
-    if (targetBlock) {
-      targetBlock.position.cx = textBlock.bbox().cx;
-      targetBlock.position.cy = textBlock.bbox().cy;
-    }
-  }
-
-  public moveTextLeft(textGroup: SVG.Text) {
-    textGroup.dx(-1);
-  }
-
-  public moveTextRight(textGroup: SVG.Text) {
-    textGroup.dx(1);
-  }
-
-  public moveTextUp(textGroup: SVG.Text) {
-    textGroup.dy(-1);
-  }
-
-  public moveTextDown(textGroup: SVG.Text) {
-    textGroup.dy(1);
+  public updateTextBlockDesign(para: any) {
+    const { type, target, arg } = para;
+    switch (type) {
+        case 'color':
+          // @ts-ignore
+          const textblock = this.textGroup.members.find((member) => member.node.id === target.id);
+          textblock.style('fill', arg);
+          target.fill = arg;
+          break;
+      }
   }
 }
 </script>
@@ -373,36 +386,13 @@ export default class TextPersonalize extends Vue {
             v-text="'Change template'"
             @click="updateTemplate"
           />
-          <button
-            type="button"
-            class="function-btn"
-            v-text="'Move left'"
-            @click="moveTextLeft(textGroup)"
-          />
-          <button
-            type="button"
-            class="function-btn"
-            v-text="'Move right'"
-            @click="moveTextRight(textGroup)"
-          />
-          <button
-            type="button"
-            class="function-btn"
-            v-text="'Move up'"
-            @click="moveTextUp(textGroup)"
-          />
-          <button
-            type="button"
-            class="function-btn"
-            v-text="'Move down'"
-            @click="moveTextDown(textGroup)"
-          />
         </div>
         <div class="text__dashboard__text-block">
           <text-controller
             v-for="block in actives.textBlocks"
             :key="block.id"
             :textBlock="block"
+            @change="updateTextBlockDesign"
           />
         </div>
       </div>
