@@ -1,11 +1,9 @@
 <script lang="ts">
 import { Vue, Component, Prop } from 'vue-property-decorator';
 
-const colors = [ '#f00', '#0f0', '#00f', '#000', '#fff' ];
-
 @Component
 export default class ColorSelector extends Vue {
-  public colors: string[] = colors;
+  @Prop({ required: true }) public availableColors!: string[];
 
   public changeColor(para: { [name: string]: any }) {
     this.$emit('change-color', para);
@@ -17,10 +15,10 @@ export default class ColorSelector extends Vue {
   <div class="color-selector">
     <span
       class="color-selector__bricks"
-      v-for="(color, index) in colors"
+      v-for="(color, index) in availableColors"
       :key="index"
       :style="{ backgroundColor: color }"
-      @click="changeColor({ type: 'color', arg: color })"
+      @click="changeColor({ property: 'fill', value: color })"
     />
   </div>
 </template>
@@ -38,7 +36,7 @@ export default class ColorSelector extends Vue {
       vertical-align: middle;
       margin-left: 12px;
       border-radius: 3px;
-      border: 1px solid #aaa;
+      cursor: pointer;
     }
   }
 </style>

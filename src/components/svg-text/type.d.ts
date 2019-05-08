@@ -15,10 +15,20 @@ export interface ITextBlock {
   transform: {
     scaleX: number;
     scaleY: number;
-    skewX: number;
-    skewY: number;
     rotate: number;
   };
+}
+
+export interface ITextBlockData {
+  text: string;
+  x: number;
+  y: number;
+  fontname: string;
+  fontnameTC?: string;
+  fontnameEN?: string;
+  linepad: number;
+  wordpad?: number;
+  align: string;
 }
 
 export interface ITemplate {
@@ -54,13 +64,24 @@ export interface IBackgroundConfig {
   };
   padding: number;
   radius: number;
+  needMask: boolean;
   fullCover: boolean;
 }
 
-export interface IActivesDesign {
+interface ICustomStylingV2 {
+  group: {
+    [property: string]: any;
+  };
+  block: {
+    [property: string]: Array<{ index: number; value: any; }>;
+  };
+}
+
+export interface IActives {
   textInput: string;
-  textBlocks: ITextBlock[];
   template: ITemplate;
+  textBlocks: ITextBlock[];
+  customStylingV2: ICustomStylingV2;
 }
 
 export interface IFrameConfig {

@@ -4,7 +4,7 @@ import { ITemplate } from '@/components/svg-text/type';
 const textTemplate: ITemplate[] = [
   {
     templateName: 'templateA',
-    fontFamily: 'Arial Black',
+    fontFamily: 'Arial Black', //
     fontSize: 25,
     fontWeight: 800,
     anchor: 'middle',
@@ -17,7 +17,7 @@ const textTemplate: ITemplate[] = [
     fontFamily: 'Arial',
     fontSize: 25, // vary the font size by detecting the length of text
     fontWeight: 800,
-    fill: 'rgb(255, 153, 34)',
+    fill: 'rgb(0, 0, 0)',
     anchor: 'middle',
     leading: 5,
     background: {
@@ -25,6 +25,7 @@ const textTemplate: ITemplate[] = [
       stroke: { color: 'none', width: 0 },
       padding: 10,
       radius: 0,
+      needMask: true,
       fullCover: false,
     },
     frame: {
@@ -62,6 +63,7 @@ const textTemplate: ITemplate[] = [
       stroke: { color: 'none', width: 0 },
       padding: 10,
       radius: 0,
+      needMask: false,
       fullCover: false,
     },
     monospaced: false,
