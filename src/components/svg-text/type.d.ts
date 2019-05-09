@@ -5,12 +5,13 @@ export interface ITextBlock {
   fontSize: string | null;
   fill: string | null;
   fontWeight: string | null;
+  textAnchor: string | null;
   appliedTemplateName: string;
   position: {
+    x: number;
+    y: number;
     cx: number;
     cy: number;
-    dx?: number;
-    dy?: number;
   };
   transform: {
     scaleX: number;
@@ -24,11 +25,12 @@ export interface ITextBlockData {
   x: number;
   y: number;
   fontname: string;
+  fontsize: number;
   fontnameTC?: string;
   fontnameEN?: string;
-  linepad: number;
+  linepad?: number;
   wordpad?: number;
-  align: string;
+  align?: string;
 }
 
 export interface ITemplate {

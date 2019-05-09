@@ -4,7 +4,7 @@ import { ITemplate } from '@/components/svg-text/type';
 const textTemplate: ITemplate[] = [
   {
     templateName: 'templateA',
-    fontFamily: 'Arial Black', //
+    fontFamily: 'RobotoMono-Bold',
     fontSize: 25,
     fontWeight: 800,
     anchor: 'middle',
@@ -14,14 +14,14 @@ const textTemplate: ITemplate[] = [
   },
   {
     templateName: 'templateB',
-    fontFamily: 'Arial',
+    fontFamily: 'RobotoMono-Bold',
     fontSize: 25, // vary the font size by detecting the length of text
     fontWeight: 800,
     fill: 'rgb(0, 0, 0)',
     anchor: 'middle',
     leading: 5,
     background: {
-      fill: '#fff',
+      fill: '#333',
       stroke: { color: 'none', width: 0 },
       padding: 10,
       radius: 0,
@@ -29,7 +29,7 @@ const textTemplate: ITemplate[] = [
       fullCover: false,
     },
     frame: {
-      color: '#fff',
+      color: '#333',
       strokeWidth: 6,
       padding: 10,
       radius: 0,
@@ -38,12 +38,12 @@ const textTemplate: ITemplate[] = [
   },
   {
     templateName: 'templateC',
-    fontFamily: 'Phosphate',
+    fontFamily: 'RobotoMono-Bold',
     fontSize: 35,
     fontWeight: 800,
     anchor: 'middle',
     fill: 'rgb(51, 51, 51)',
-    leading: 0,
+    leading: 10,
     monospaced: true,
     skew: {
       x: 0,
@@ -52,11 +52,11 @@ const textTemplate: ITemplate[] = [
   },
   {
     templateName: 'templateD',
-    fontFamily: 'Impact',
+    fontFamily: 'RobotoMono-Bold',
     fontSize: 45,
     fontWeight: 800,
     fill: 'rgb(255, 255, 255)',
-    anchor: 'start',
+    anchor: 'end',
     leading: 10,
     background: {
       fill: '#666',

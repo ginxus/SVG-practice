@@ -38,6 +38,7 @@ export default class TextPersonalize extends Vue {
       block: {},
     },
   };
+  public downloadTime: number = 0;
 
   public mounted() {
     this.init();
@@ -49,7 +50,7 @@ export default class TextPersonalize extends Vue {
     this.refreshDisplayer();
   }
 
-  public async init() {
+  public init() {
     const centerPosition = this.getCenterPoint();
     // @ts-ignore
     this.draw = SVG('svg-displayer');
@@ -89,7 +90,7 @@ export default class TextPersonalize extends Vue {
 
       this.insertTextBlock();
       this.applyTextBlockStyleV2();
-      this.applyTemplateStyleV2();
+      this.applyTemplateStyleV2(false);
       this.applyCustomStyleV2();
       this.createTextBlockDesign(this.elementGroup as SVG.G);
 
@@ -125,7 +126,7 @@ export default class TextPersonalize extends Vue {
     let currentWidth: number;
     // @ts-ignore
     const widthArray = this.elementGroup.children()
-      .filter((el) => el.type === 'text')
+      .filter((el) => el.type === 'text' || el.type === 'path') // TODO: refactor
       .map((el) => el.bbox().width);
     const maxWidth = Math.max(...widthArray);
     const allowance = 1;
@@ -147,25 +148,28 @@ export default class TextPersonalize extends Vue {
     }
   }
 
-  public applyTemplateStyleV2() {
+  public applyTemplateStyleV2(reproduce: boolean) {
 
     const { monospaced, background, frame, rotate, skew, leading, decoration, fontSize } = this.actives.template;
 
     if (this.elementGroup) {
-      if (monospaced) {
-        // @ts-ignore
-        this.elementGroup.children()
-          .filter((el) => el.type === 'text')
-          .forEach((el, index) => {
-            this.monospaced(el, fontSize);
-          });
+
+      if (!reproduce) {
+        if (monospaced) {
+          // @ts-ignore
+          this.elementGroup.children()
+            .filter((el) => el.type === 'text')
+            .forEach((el, index) => {
+              this.monospaced(el, fontSize);
+            });
+        }
+        this.fixLineHeightV2(leading);
+        if (background) { this.addBackgroundV2(background); }
+        if (frame) { this.addFrame(frame); }
       }
-      this.fixLineHeightV2(leading);
       // @ts-ignore
       if (rotate) { this.rotateV2(rotate); }
       if (skew) { this.skewV2(skew); }
-      if (background) { this.addBackgroundV2(background); }
-      if (frame) { this.addFrame(frame); }
     }
   }
 
@@ -178,7 +182,8 @@ export default class TextPersonalize extends Vue {
         .filter((el) => el.type === 'text')
         .forEach((el, index) => {
           el.style({
-            'font-family': fontFamily,
+            // 'font-family': fontFamily,
+            'font-family': 'Roboto-Bold',
             'font-weight': fontWeight,
             'font-size': fontSize,
             'text-anchor': anchor,
@@ -218,7 +223,7 @@ export default class TextPersonalize extends Vue {
             const fill = this.actives.customStylingV2.group[prop];
             // @ts-ignore
             (this.elementGroup as SVG.G).children()
-              .filter((el) => el.type === 'text')
+              .filter((el) => el.type === 'path' || el.type === 'text')
               .forEach((el) => el.style('fill', fill));
             break;
           case 'scale':
@@ -236,15 +241,13 @@ export default class TextPersonalize extends Vue {
 
   public rotateV2(rotate: number) {
     const elementGroupBBox = (this.elementGroup as SVG.G).bbox();
-    // (this.elementGroup as SVG.G).rotate(rotate, elementGroupBBox.cx, elementGroupBBox.cy);
-    // (this.elementGroup as SVG.G).rotate(rotate);
     (this.elementGroupShell as SVG.G).transform({rotation: rotate}, false);
   }
 
   public skewV2(skew: { x: number; y: number; }) {
     // @ts-ignore
     this.elementGroup.children()
-      .filter((el) => el.type === 'text')
+      .filter((el) => el.type === 'path' || el.type === 'text') // TODO: refactor
       .forEach((el) => {
         el.skew(skew.x, skew.y);
       });
@@ -259,7 +262,7 @@ export default class TextPersonalize extends Vue {
     } else {
       // @ts-ignore
       this.elementGroup.children()
-        .filter((el) => el.type === 'text')
+        .filter((el) => el.type === 'text' || el.type === 'path')  // TODO: refactor
         .forEach((member, index) => {
           this.addTextBackground(member, backgroundSetting, needMask);
         });
@@ -345,7 +348,7 @@ export default class TextPersonalize extends Vue {
     if (this.elementGroup) {
       // @ts-ignore
       this.elementGroup.children()
-        .filter((el) => el.type === 'text')
+        .filter((el) => el.type === 'text' || el.type === 'path') // TODO: refactor
         .forEach((currentBlock, index) => {
 
           if (index > 0) {
@@ -393,17 +396,20 @@ export default class TextPersonalize extends Vue {
 
     textBlockArray.forEach((member: SVG.Element, index: number) => {
       const { id, textContent, style } = member.node;
-      const { fontSize, fill, fontWeight } = style;
+      const { fontSize, fill, fontWeight, textAnchor } = style;
       const { scaleX, scaleY, skewX, skewY, rotation: rotate } = member.transform();
       const textBlock: ITextBlock = {
         id,
         index,
         content: textContent + '\n',
-        fontSize,
         fill,
+        fontSize,
         fontWeight,
+        textAnchor,
         appliedTemplateName: this.actives.template.templateName,
         position: {
+          x: member.bbox().x,
+          y: member.bbox().y,
           cx: member.bbox().cx,
           cy: member.bbox().cy,
         },
@@ -438,45 +444,127 @@ export default class TextPersonalize extends Vue {
       this.actives.customStylingV2.group[property] = value;
     }
     this.applyCustomStyleV2();
+    this.createTextBlockDesign((this.elementGroup as SVG.G));
   }
 
-  public wordToPath() {
+  public async textToPath(textblockData: ITextBlockData) {
+
     const url = 'https://zkjgntnwdd.execute-api.us-west-2.amazonaws.com/dev/wordtopath';
     const header = new Headers({'Content-Type': 'text/json'});
-    const body = {
-      text: 'test',
-      x: 0,
-      y: 50,
-      fontname: 'NotoSans-Bold',
-      fontsize: 36,
-      linepad: 1,
-      align: 'center',
-    };
     const request = new Request(url, {
       method: 'POST',
       headers: header,
-      body: JSON.stringify(body),
+      body: JSON.stringify(textblockData),
     });
 
-    fetch(request)
+    const response = await fetch(request)
       .then((res) => {
         if (!res.ok) {
           throw new Error(res.statusText);
         } else {
-          res.json();
+          return res.json();
         }
       })
       .catch((err) => {
         throw new Error(err);
       });
+
+    return response.path;
   }
 
-  public exportDesign(textBlockData: ITextBlockData[]) {
-    // convert SVG text to path
-    // export SVG
-    this.wordToPath();
-    const exportedSVG = (this.draw as SVG.Doc).svg();
-    window.console.log(exportedSVG);
+  public convertToSvgString(convertedBlocks: Array<{ textblock: ITextBlock, d: string }>) {
+
+    const reproduce = true;
+    const isMaskExisted = (this.elementGroup as SVG.G).children().some((el) => el.type === 'mask');
+    const filteredElement = (this.elementGroup as SVG.G).children()
+      .filter((el) => el.type === (isMaskExisted ? 'mask' : 'text'));
+
+    filteredElement.forEach((el, index) => {
+
+      const { textblock, d  } = convertedBlocks[index];
+
+      if (isMaskExisted) {
+        // @ts-ignore
+        const originTextMask = el.children().find((childEl) => childEl.type === 'text');
+        const textBackgrounds = (this.elementGroup as SVG.G).children().filter((element) => element.type === 'rect');
+        const newTextMask = (this.draw as SVG.Doc).path(d).fill('#fff');
+        this.setPosition((textblock.textAnchor as string), newTextMask, originTextMask);
+        el.remove();
+        textBackgrounds[index].after(newTextMask);
+      } else {
+        const newText = (this.draw as SVG.Doc).path(d).fill(textblock.fill as string);
+        this.setPosition((textblock.textAnchor as string), newText, el);
+        el.remove();
+        newText.addTo((this.elementGroup as SVG.G));
+
+        this.applyTemplateStyleV2(reproduce); // TODO: add logic to decide whether to excute monospace or not
+        this.applyCustomStyleV2();
+      }
+    });
+
+    return (this.draw as SVG.Doc).svg();
+  }
+
+  public setPosition(
+    anchor: string,
+    el: SVG.Element,
+    referenceElement: SVG.Element,
+  ) {
+    const { x, x2, cx, cy } = referenceElement.bbox();
+    switch (anchor) {
+      case 'start':
+        el.x(x);
+        el.cy(cy);
+        break;
+      case 'middle':
+        el.center(cx, cy);
+        break;
+      case 'end':
+        el.x(x2);
+        el.cy(cy);
+        el.translate((0 - el.bbox().width), 0);
+        break;
+    }
+    return el;
+  }
+
+  public exportDesign() {
+
+    const paths = this.actives.textBlocks.map((textblock) => {
+      return new Promise((resolve) => {
+        const { fontSize, position, content  } = textblock;
+        const requestData: ITextBlockData = {
+          text: content as string,
+          x: position.x,
+          y: position.y,
+          fontname: 'Roboto-Bold', // TODO: refactor to dynamic value
+          fontsize: parseInt(fontSize as string, 10),
+        };
+
+        this.textToPath(requestData).then((d) => {
+          resolve({ d, textblock });
+        });
+      });
+    });
+
+    Promise.all(paths).then((val) => {
+      const svgString = this.convertToSvgString(val as Array<{ textblock: ITextBlock, d: string }>);
+      this.saveAsFile(svgString);
+    });
+  }
+
+  public saveAsFile(svgString: string) {
+    const currentDownloadTime = this.downloadTime + 1;
+    const svgFile = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const svgFileUrl = URL.createObjectURL(svgFile);
+    const fakeDownloadBtn = document.createElement('a');
+    fakeDownloadBtn.href = svgFileUrl;
+    fakeDownloadBtn.download = `svgTextTestFile-${currentDownloadTime}`;
+
+    document.body.appendChild(fakeDownloadBtn);
+    fakeDownloadBtn.click();
+    document.body.removeChild(fakeDownloadBtn);
+    this.downloadTime = currentDownloadTime;
   }
 }
 </script>
