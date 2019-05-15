@@ -2,43 +2,59 @@
 import { Vue, Component, Prop } from 'vue-property-decorator';
 
 @Component
-export default class ColorSelector extends Vue {
-  @Prop({ required: true }) public availableColors!: string[];
+export default class ColorBrick extends Vue {
+  @Prop({ required: true }) public color!: string;
 
-  public changeColor(para: { [name: string]: any }) {
-    this.$emit('change-color', para);
+  public changeColor(color: string) {
+    this.$emit('change-color', color);
   }
 }
 </script>
 
 <template>
-  <div class="color-selector">
-    <span
-      class="color-selector__bricks"
-      v-for="(color, index) in availableColors"
-      :key="index"
-      :style="{ backgroundColor: color }"
-      @click="changeColor({ property: 'fill', value: color })"
-    />
-  </div>
+  <div
+    :style="{'background-color': color}"
+    :class="[
+      'color-brick',
+      { transparent: color === 'transparent' }
+    ]"
+    @click="changeColor(color)"
+  />
 </template>
 
 <style lang="scss">
-  .color-selector {
+  .color-brick {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 12px;
+    border-radius: 3px;
+    cursor: pointer;
 
-    background-color: 'brown';
-    padding: 10px;
+    &.transparent {
+      box-sizing: border-box;
+      background-color: #fff;
+      border: 1px solid #333;
+      position: relative;
 
-    &__bricks {
-      width: 16px;
-      height: 16px;
-      display: inline-block;
-      vertical-align: middle;
-      margin-left: 12px;
-      border-radius: 3px;
-      cursor: pointer;
+      &:after {
+        content: '';
+        display: block;
+        height: 17px;
+        width: 1px;
+        background-color: #333;
+        position: absolute;
+        left: 50%;
+        top: 0;
+        transform: 
+          translate(-50%, 0)
+          rotate(45deg);
+      }
     }
   }
+
+ 
 </style>
 
 

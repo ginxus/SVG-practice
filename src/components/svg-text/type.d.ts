@@ -1,29 +1,28 @@
 export interface ITextBlock {
-  id: string;
   index: number;
   content: string | null;
   fontSize: string | null;
   fill: string | null;
-  fontWeight: string | null;
   textAnchor: string | null;
-  appliedTemplateName: string;
-  position: {
+  isMasked: boolean;
+  position?: {
     x: number;
     y: number;
     cx: number;
     cy: number;
   };
-  transform: {
+  transform?: {
     scaleX: number;
     scaleY: number;
     rotate: number;
   };
+  [name: string]: any;
 }
 
-export interface ITextBlockData {
+export interface ITextQueryData {
   text: string;
-  x: number;
-  y: number;
+  x?: number;
+  y?: number;
   fontname: string;
   fontsize: number;
   fontnameTC?: string;
@@ -56,6 +55,7 @@ export interface ITemplate {
       y: number,
     },
   };
+  [name: string]: any;
 }
 
 export interface IBackgroundConfig {
@@ -70,20 +70,10 @@ export interface IBackgroundConfig {
   fullCover: boolean;
 }
 
-interface ICustomStylingV2 {
-  group: {
-    [property: string]: any;
-  };
-  block: {
-    [property: string]: Array<{ index: number; value: any; }>;
-  };
-}
-
 export interface IActives {
   textInput: string;
   template: ITemplate;
-  textBlocks: ITextBlock[];
-  customStylingV2: ICustomStylingV2;
+  textDesignV2: ITextDesignV2 | { [name: string]: any };
 }
 
 export interface IFrameConfig {
@@ -91,4 +81,25 @@ export interface IFrameConfig {
   strokeWidth: number;
   padding: number;
   radius: number;
+}
+
+export type ITextDesignMode = 'group' | 'block';
+
+interface IPosition {
+  x: number;
+  y: number;
+}
+
+export interface ITextDesignV2 {
+  mode: string;
+  customProps: {
+    masked: boolean;
+    fill?: string | Array<{index: number, value: string}>;
+    rotate?: number | Array<{index: number, value: number}>;
+    scale?: number | Array<{index: number, value: number}>;
+    move?: IPosition | IPosition[];
+    [name: string]: any;
+  };
+  template: ITemplate;
+  textContent: string;
 }

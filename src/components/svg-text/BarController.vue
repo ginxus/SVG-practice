@@ -25,6 +25,7 @@ export default class BarController extends Vue {
       this.currentValue = Number(updatedValue);
 
       const param = {
+        index: null,
         property: this.name,
         value: updatedValue,
       };

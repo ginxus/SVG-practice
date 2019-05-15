@@ -43,7 +43,7 @@ const textTemplate: ITemplate[] = [
     fontWeight: 800,
     anchor: 'middle',
     fill: 'rgb(51, 51, 51)',
-    leading: 10,
+    leading: 0,
     monospaced: true,
     skew: {
       x: 0,
@@ -63,7 +63,7 @@ const textTemplate: ITemplate[] = [
       stroke: { color: 'none', width: 0 },
       padding: 10,
       radius: 0,
-      needMask: false,
+      needMask: true,
       fullCover: false,
     },
     monospaced: false,
