@@ -3,19 +3,20 @@
 import AppStorage from '@/libs/storage';
 import { Component, Prop, Vue, Watch  } from 'vue-property-decorator';
 import {
-  ITextBlock,
-  ITextBlockData,
-  ITemplate,
   IActives,
-  ICustomStylingV2,
   IBackgroundConfig,
   IFrameConfig,
+  ITemplate,
+  ITextBlock,
+  ITextDesignV2,
+  ITextQueryData,
 } from '@/components/svg-text/type';
 import SVG, { Element } from 'svg.js';
 import 'svg.draggable.js';
 import 'svg.panzoom.js';
-import templateConfig from '@/configs/template.ts';
-import { panZoomConfig, viewboxConfig } from '@/configs/control.ts';
+import templateConfig from '@/configs/template';
+import { viewboxConfig } from '@/configs/control';
+import { customize } from '@/configs/general';
 import BarController from './BarController.vue';
 import ColorPicker from './ColorPicker.vue';
 
@@ -32,29 +33,21 @@ export default class TextPersonalize extends Vue {
   public actives: IActives = {
     textInput: 'GET\nEVERYBODY\nMOVE',
     template: templateConfig[0],
-    textBlocks: [],
-    customStylingV2: {
-      group: {},
-      block: {},
-    },
+    textDesignV2: {},
   };
   public downloadTime: number = 0;
 
   public mounted() {
     this.init();
-    this.getCenterPoint();
   }
 
   @Watch('actives.textInput')
   public onTextInputChange() {
-    this.refreshDisplayer();
+    this.reRender();
   }
 
   public init() {
-    const centerPosition = this.getCenterPoint();
-    // @ts-ignore
     this.draw = SVG('svg-displayer');
-    // @ts-ignore
     this.draw.viewbox(viewboxConfig);
     this.elementGroupShell = (this.draw as SVG.Doc).group();
     this.elementGroup = (this.draw as SVG.Doc)
@@ -65,36 +58,25 @@ export default class TextPersonalize extends Vue {
       .on('dragend', (e: any) => {
         const { x, y } = (this.elementGroup as SVG.G).transform();
         const param = {
+          index: null,
           property: 'move',
           value: { x, y },
         };
-        this.updateDesign(param);
+        this.updateDesignV3(param);
       })
       .addTo(this.elementGroupShell);
-
-    this.refreshDisplayer();
+    this.actives.textDesignV2 = this.createDesignV2('group');
+    this.reRender();
   }
 
-  public refreshDisplayer() {
+  public reRender() {
 
     if (this.draw) {
-
-      const centerPosition = this.getCenterPoint();
-      const textInputArray = this.actives.textInput.split('\n');
-      const { background, leading } = this.actives.template;
-
-      if (this.elementGroup) {
-        this.elementGroup.clear();
-        this.elementGroup.forget();
-      }
-
+      if (this.elementGroup) { this.elementGroup.clear(); }
       this.insertTextBlock();
-      this.applyTextBlockStyleV2();
-      this.applyTemplateStyleV2(false);
-      this.applyCustomStyleV2();
-      this.createTextBlockDesign(this.elementGroup as SVG.G);
-
-      AppStorage.setItem('svg-design', this.actives.textBlocks);
+      this.applyTemplate(false);
+      this.applyCustomDesignV2();
+      AppStorage.setItem('svg-design', this.actives.textDesignV2);
     }
   }
 
@@ -102,7 +84,7 @@ export default class TextPersonalize extends Vue {
     const textInputArray = this.actives.textInput.split('\n');
     textInputArray.forEach((text, index) => {
       if (this.draw && this.elementGroup) {
-        const textBlock = this.draw.text(text);
+        const textBlock = this.draw.text(text).addClass('svg-textblock');
         (this.elementGroup as SVG.G).add(textBlock);
         textBlock.animate({ ease: '>', duration: 200, delay: 100 * index }).scale(2.5, 2.5).reverse();
       }
@@ -118,16 +100,62 @@ export default class TextPersonalize extends Vue {
     ? templateConfig[0]
     : templateConfig[currentIndex + 1];
 
-    this.refreshDisplayer();
+    this.actives.textDesignV2.template = this.actives.template;
+
+    this.reRender();
+  }
+
+  public updateDesignV3(
+    param: {
+      index: number | null;
+      property: string;
+      value: any;
+    },
+  ) {
+    const { index, property, value } = param;
+    if (index) {
+      if (this.actives.textDesignV2.customProps[property]) {
+        const existed = this.actives.textDesignV2.customProps[property].find((block: any) => block.index === index);
+        if (existed) {
+          existed.value = value;
+        } else {
+          this.actives.textDesignV2.customProps[property].push({ index, property });
+        }
+      } else {
+        this.actives.textDesignV2.customProps[property] = [ { index, property } ];
+      }
+    } else {
+      this.actives.textDesignV2.customProps[property] = value;
+    }
+    this.applyCustomDesignV2();
+  }
+
+  public createDesignV2(mode: string) {
+    let masked: boolean;
+    const { template, textInput } = this.actives;
+
+    if (this.actives.template.background) {
+      masked = this.actives.template.background.needMask ? true : false;
+    } else {
+      masked = false;
+    }
+
+    const textDesign: ITextDesignV2 = {
+      mode,
+      customProps: {
+        masked,
+      },
+      template,
+      textContent: textInput,
+    };
+    return textDesign;
   }
 
   public monospaced(textblock: SVG.Element, fontSize: number) {
 
     let currentWidth: number;
     // @ts-ignore
-    const widthArray = this.elementGroup.children()
-      .filter((el) => el.type === 'text' || el.type === 'path') // TODO: refactor
-      .map((el) => el.bbox().width);
+    const widthArray = this.selectElement('svg-textblock').map((el) => el.bbox().width);
     const maxWidth = Math.max(...widthArray);
     const allowance = 1;
     currentWidth = textblock.bbox().width;
@@ -148,106 +176,56 @@ export default class TextPersonalize extends Vue {
     }
   }
 
-  public applyTemplateStyleV2(reproduce: boolean) {
-
-    const { monospaced, background, frame, rotate, skew, leading, decoration, fontSize } = this.actives.template;
+  public applyTemplate(isExport: boolean) {
+    const {
+      monospaced,
+      background,
+      frame,
+      rotate,
+      skew,
+      leading,
+      decoration,
+      fontSize,
+      fill,
+      anchor,
+      fontFamily,
+    } = this.actives.template;
 
     if (this.elementGroup) {
 
-      if (!reproduce) {
-        if (monospaced) {
-          // @ts-ignore
-          this.elementGroup.children()
-            .filter((el) => el.type === 'text')
-            .forEach((el, index) => {
-              this.monospaced(el, fontSize);
+      if (!isExport) {
+
+        this.selectElement('svg-textblock')
+          .forEach((el, index) => {
+            el.style({
+              // 'font-family': fontFamily,
+              'font-family': 'Roboto-Bold',
+              'font-size': fontSize,
+              'text-anchor': anchor,
+              'cursor': 'pointer',
+              fill,
             });
+          });
+
+        if (monospaced) {
+          this.selectElement('svg-textblock')
+            .forEach((el, index) => { this.monospaced(el, fontSize); });
         }
         this.fixLineHeightV2(leading);
         if (background) { this.addBackgroundV2(background); }
         if (frame) { this.addFrame(frame); }
       }
-      // @ts-ignore
       if (rotate) { this.rotateV2(rotate); }
       if (skew) { this.skewV2(skew); }
     }
   }
 
-  public applyTextBlockStyleV2() {
-
-    const { fill, anchor, fontSize, fontFamily, fontWeight } = this.actives.template;
-
-    if (this.elementGroup) {
-      this.elementGroup.children()
-        .filter((el) => el.type === 'text')
-        .forEach((el, index) => {
-          el.style({
-            // 'font-family': fontFamily,
-            'font-family': 'Roboto-Bold',
-            'font-weight': fontWeight,
-            'font-size': fontSize,
-            'text-anchor': anchor,
-            'cursor': 'pointer',
-            fill,
-          });
-        });
-    }
-  }
-
-  public applyCustomStyleV2() {
-    const { block, group } = this.actives.customStylingV2;
-    const blockCustomProperties = Object.keys(block);
-    const groupCustomProperties = Object.keys(group);
-    if (blockCustomProperties.length > 0) {
-      blockCustomProperties.forEach((prop) => {
-        block[prop].forEach((config) => {
-          const { index, value } = config;
-          const textblocks = (this.elementGroup as SVG.G).children().filter((el) => el.type === 'text');
-          textblocks[index].style(prop, value);
-        });
-      });
-    }
-    if (groupCustomProperties.length > 0) {
-      groupCustomProperties.forEach((prop) => {
-        switch (prop) {
-          case 'move':
-            const { x, y } = this.actives.customStylingV2.group[prop];
-            (this.elementGroup as SVG.G).move(x, y);
-            break;
-          case 'zoom':
-            const value = this.actives.customStylingV2.group[prop];
-            // @ts-ignore
-            this.draw.zoom(value);
-            break;
-          case 'fill':
-            const fill = this.actives.customStylingV2.group[prop];
-            // @ts-ignore
-            (this.elementGroup as SVG.G).children()
-              .filter((el) => el.type === 'path' || el.type === 'text')
-              .forEach((el) => el.style('fill', fill));
-            break;
-          case 'scale':
-            const scale = this.actives.customStylingV2.group[prop];
-            (this.elementGroupShell as SVG.G).scale(scale);
-            break;
-          case 'rotate':
-            const rotate = this.actives.customStylingV2.group[prop];
-            this.rotateV2(rotate);
-            break;
-        }
-      });
-    }
-  }
-
   public rotateV2(rotate: number) {
-    const elementGroupBBox = (this.elementGroup as SVG.G).bbox();
     (this.elementGroupShell as SVG.G).transform({rotation: rotate}, false);
   }
 
   public skewV2(skew: { x: number; y: number; }) {
-    // @ts-ignore
-    this.elementGroup.children()
-      .filter((el) => el.type === 'path' || el.type === 'text') // TODO: refactor
+    this.selectElement('svg-textblock')
       .forEach((el) => {
         el.skew(skew.x, skew.y);
       });
@@ -260,9 +238,7 @@ export default class TextPersonalize extends Vue {
     if (fullCover) {
       this.addFullCoverBackground(backgroundSetting);
     } else {
-      // @ts-ignore
-      this.elementGroup.children()
-        .filter((el) => el.type === 'text' || el.type === 'path')  // TODO: refactor
+      this.selectElement('svg-textblock')
         .forEach((member, index) => {
           this.addTextBackground(member, backgroundSetting, needMask);
         });
@@ -301,18 +277,12 @@ export default class TextPersonalize extends Vue {
       .fill(fill)
       .stroke(stroke)
       .radius(radius)
-      .center(cx, cy);
-
-    // * use textToSvg or openType to convert a svg-text to path *
+      .center(cx, cy)
+      .addClass('svg-text-background')
+      .addTo(this.elementGroup as SVG.G);
 
     if (needMask) {
-      const mask = (this.draw as SVG.Doc).mask();
-      const maskRect = background.clone().fill('#fff');
-      mask.add(maskRect);
-      mask.add(textBlock);
-      background.maskWith(mask);
-      (this.elementGroup as SVG.G).add(mask);
-      (this.elementGroup as SVG.G).add(background);
+      this.applyOrUndoMaskV2(background, textBlock);
     } else {
       textBlock.before(background);
     }
@@ -346,9 +316,7 @@ export default class TextPersonalize extends Vue {
     const centerPosition = this.getCenterPoint();
 
     if (this.elementGroup) {
-      // @ts-ignore
-      this.elementGroup.children()
-        .filter((el) => el.type === 'text' || el.type === 'path') // TODO: refactor
+      this.selectElement('svg-textblock')
         .forEach((currentBlock, index) => {
 
           if (index > 0) {
@@ -362,7 +330,6 @@ export default class TextPersonalize extends Vue {
             } else {
               distance = formerBlock.bbox().height / 2 + currentBlock.bbox().height / 2 + leading;
             }
-
             cy = formerBlock.bbox().cy;
           } else {
             cy = currentBlock.bbox().cy;
@@ -376,78 +343,119 @@ export default class TextPersonalize extends Vue {
     }
   }
 
-  public createTextBlockDesign(textGroup: SVG.G) {
+  public applyCustomDesignV2() {
+    this.actives.textDesignV2.mode === 'group'
+      ? this.applyCustomGroupDesign()
+      : this.applyCustomBlockDesign();
+  }
 
-    this.actives.textBlocks = [];
-    AppStorage.removeItem('svg-design');
-
-    let textBlockArray: SVG.Text[];
-    const maskArray = textGroup.children().filter((el) => el.type === 'mask');
-
-    if (maskArray.length > 0) {
-      // @ts-ignore
-      textBlockArray = maskArray.map((mask: SVG.Mask) => {
-        return mask.children().find((el) => el.type === 'text');
-      });
-    } else {
-      // @ts-ignore
-      textBlockArray = textGroup.children().filter((el) => el.type === 'text');
-    }
-
-    textBlockArray.forEach((member: SVG.Element, index: number) => {
-      const { id, textContent, style } = member.node;
-      const { fontSize, fill, fontWeight, textAnchor } = style;
-      const { scaleX, scaleY, skewX, skewY, rotation: rotate } = member.transform();
-      const textBlock: ITextBlock = {
-        id,
-        index,
-        content: textContent + '\n',
-        fill,
-        fontSize,
-        fontWeight,
-        textAnchor,
-        appliedTemplateName: this.actives.template.templateName,
-        position: {
-          x: member.bbox().x,
-          y: member.bbox().y,
-          cx: member.bbox().cx,
-          cy: member.bbox().cy,
-        },
-        // @ts-ignore
-        transform: { scaleX, scaleY, rotate },
-      };
-      this.actives.textBlocks.push(textBlock);
+  public applyCustomBlockDesign() {
+    const textblocks = this.selectElement('svg-textblock');
+    Object.keys(this.actives.textDesignV2.customProps).forEach((prop) => {
+      switch (prop) {
+        case 'fill':
+          if (this.isMaskExisted(this.elementGroup as SVG.G)) {
+            this.selectElement('svg-text-background').forEach((bg) => { this.applyOrUndoMaskV2(bg); });
+          }
+          const value = this.actives.textDesignV2.customProps[prop];
+          this.fillTextBlocks(value);
+          break;
+      }
     });
   }
 
-  public updateDesign(
-    param: {
-      index?: number;
-      property: string;
-      value: any;
-    },
-  ) {
-    const { index, property, value } = param;
-    if (index !== undefined) {
-      const config = { index, value };
-      if (this.actives.customStylingV2.block[property]) {
-        const existedBlock = this.actives.customStylingV2.block[property].find((el) => el.index === index);
-        if (existedBlock) {
-          existedBlock.value = value;
-        } else {
-          this.actives.customStylingV2.block[property].push(config);
-        }
-      } else {
-        this.actives.customStylingV2.block[property] = [ config ];
+  public applyCustomGroupDesign() {
+    Object.keys(this.actives.textDesignV2.customProps).forEach((prop) => {
+      const value = this.actives.textDesignV2.customProps[prop];
+      switch (prop) {
+        case 'scale':
+          (this.elementGroupShell as SVG.G).scale(value);
+          break;
+        case 'rotate':
+          this.rotateV2(value);
+          break;
+        case 'move':
+          (this.elementGroup as SVG.G).move(value.x, value.y);
+          break;
+        case 'fill':
+          this.fillTextBlocks(value);
+          break;
       }
-    } else {
-      this.actives.customStylingV2.group[property] = value;
-    }
-    this.applyCustomStyleV2();
-    this.createTextBlockDesign((this.elementGroup as SVG.G));
+    });
   }
 
-  public async textToPath(textblockData: ITextBlockData) {
+  public fillTextBlocks(arg: Array<{index: number, value: any}> | string) {
+
+    if (this.isMaskExisted(this.elementGroup as SVG.G)) {
+      this.selectElement('svg-text-background').forEach((bg) => { this.applyOrUndoMaskV2(bg); });
+    }
+
+    this.selectElement('svg-textblock')
+      .forEach((text, index) => {
+        const value = Array.isArray(arg)
+          ? arg.find((val) => val.index === index)
+          : arg;
+        if (this.actives.template.background) {
+          if (!this.actives.textDesignV2.customProps.masked) {
+            text.style('fill', value);
+          } else {
+            const textBackground = this.selectElement('svg-text-background')[index];
+            this.applyOrUndoMaskV2(textBackground, text);
+          }
+        } else {
+          text.style('fill', value);
+        }
+      });
+  }
+
+  // TODO: refactor to make 'anchor' dynamic
+  public applyOrUndoMaskV2(target: SVG.Element, material?: SVG.Element) {
+
+    if (target.masker) {
+      const originTextMask = target.masker.children().find((childEl) => childEl.type === 'text');
+      const replacement = material ? material : (originTextMask as SVG.Element).clone();
+      if (material) { this.setPosition('middle', replacement, originTextMask as SVG.Element); }
+      target.masker.remove();
+      target.after(replacement);
+    } else {
+      const mask = (this.draw as SVG.Doc).mask().addClass('svg-mask');
+      const maskClip = target.clone().fill('#fff').addTo(mask);
+      const targetParent = target.parent();
+      mask.add((material as SVG.Element).style('fill', '#000'));
+      target.maskWith(mask);
+      (targetParent as SVG.G).add(mask);
+    }
+    return target;
+  }
+
+  public exportDesign() {
+
+    const textblocks = this.isMaskExisted(this.elementGroup as SVG.G)
+      // @ts-ignore
+      ? this.selectElement('svg-mask').map((mask) => mask.children().find((el) => el.type === 'text'))
+      : this.selectElement('svg-textblock');
+
+    const paths = textblocks.map((textblock, index) => {
+      return new Promise((resolve) => {
+        const requestData: ITextQueryData = {
+          text: this.actives.textInput.split('\n')[index],
+          fontname: 'Roboto-Bold', // TODO: refactor to dynamic value
+          // @ts-ignore
+          fontsize: parseInt(textblock.style('font-size'), 10),
+        };
+        this.textToPath(requestData).then((d) => {
+          resolve({ d, textblock });
+        });
+      });
+    });
+
+    Promise.all(paths).then((val) => {
+      const svg = this.generateSvg(val as Array<{ d: string; textblock: SVG.Element }>);
+      this.createFile(svg);
+    });
+  }
+
+  public async textToPath(textblockData: ITextQueryData) {
 
     const url = 'https://zkjgntnwdd.execute-api.us-west-2.amazonaws.com/dev/wordtopath';
     const header = new Headers({'Content-Type': 'text/json'});
@@ -472,37 +480,56 @@ export default class TextPersonalize extends Vue {
     return response.path;
   }
 
-  public convertToSvgString(convertedBlocks: Array<{ textblock: ITextBlock, d: string }>) {
+  public generateSvg(arg: Array<{ d: string; textblock: SVG.Element }>) {
 
-    const reproduce = true;
+    const isExport = true;
     const isMaskExisted = (this.elementGroup as SVG.G).children().some((el) => el.type === 'mask');
     const filteredElement = (this.elementGroup as SVG.G).children()
       .filter((el) => el.type === (isMaskExisted ? 'mask' : 'text'));
 
     filteredElement.forEach((el, index) => {
 
-      const { textblock, d  } = convertedBlocks[index];
+      const { textblock, d  } = arg[index];
 
       if (isMaskExisted) {
-        // @ts-ignore
-        const originTextMask = el.children().find((childEl) => childEl.type === 'text');
-        const textBackgrounds = (this.elementGroup as SVG.G).children().filter((element) => element.type === 'rect');
-        const newTextMask = (this.draw as SVG.Doc).path(d).fill('#fff');
-        this.setPosition((textblock.textAnchor as string), newTextMask, originTextMask);
-        el.remove();
-        textBackgrounds[index].after(newTextMask);
+        const textBackgrounds = this.selectElement('svg-text-background');
+        const textReplacement = (this.draw as SVG.Doc).path(d).fill('#fff').addClass('svg-textblock');
+        this.applyOrUndoMaskV2(textBackgrounds[index], textReplacement);
       } else {
-        const newText = (this.draw as SVG.Doc).path(d).fill(textblock.fill as string);
-        this.setPosition((textblock.textAnchor as string), newText, el);
+        const fill = textblock.style('fill');
+        const anchor = this.actives.template.anchor;
+        const newText = (this.draw as SVG.Doc).path(d).fill(fill).addClass('svg-textblock');
+        this.setPosition(anchor, newText, el);
         el.remove();
         newText.addTo((this.elementGroup as SVG.G));
-
-        this.applyTemplateStyleV2(reproduce); // TODO: add logic to decide whether to excute monospace or not
-        this.applyCustomStyleV2();
+        this.applyTemplate(isExport);
+        this.applyCustomDesignV2();
       }
     });
 
     return (this.draw as SVG.Doc).svg();
+  }
+
+  public createFile(svgString: string) {
+    const currentDownloadTime = this.downloadTime + 1;
+    const svgFile = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const svgFileUrl = URL.createObjectURL(svgFile);
+    const fakeDownloadBtn = document.createElement('a');
+    fakeDownloadBtn.href = svgFileUrl;
+    fakeDownloadBtn.download = `svgTextTestFile-${currentDownloadTime}`;
+
+    document.body.appendChild(fakeDownloadBtn);
+    fakeDownloadBtn.click();
+    document.body.removeChild(fakeDownloadBtn);
+    this.downloadTime = currentDownloadTime;
+  }
+
+  public isMaskExisted(elementGroup: SVG.G) {
+    return elementGroup.children().some((el) => el.type === 'mask');
+  }
+
+  public selectElement(name: string) {
+    return (this.elementGroup as SVG.G).children().filter((el) => el.hasClass(name));
   }
 
   public setPosition(
@@ -526,45 +553,6 @@ export default class TextPersonalize extends Vue {
         break;
     }
     return el;
-  }
-
-  public exportDesign() {
-
-    const paths = this.actives.textBlocks.map((textblock) => {
-      return new Promise((resolve) => {
-        const { fontSize, position, content  } = textblock;
-        const requestData: ITextBlockData = {
-          text: content as string,
-          x: position.x,
-          y: position.y,
-          fontname: 'Roboto-Bold', // TODO: refactor to dynamic value
-          fontsize: parseInt(fontSize as string, 10),
-        };
-
-        this.textToPath(requestData).then((d) => {
-          resolve({ d, textblock });
-        });
-      });
-    });
-
-    Promise.all(paths).then((val) => {
-      const svgString = this.convertToSvgString(val as Array<{ textblock: ITextBlock, d: string }>);
-      this.saveAsFile(svgString);
-    });
-  }
-
-  public saveAsFile(svgString: string) {
-    const currentDownloadTime = this.downloadTime + 1;
-    const svgFile = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-    const svgFileUrl = URL.createObjectURL(svgFile);
-    const fakeDownloadBtn = document.createElement('a');
-    fakeDownloadBtn.href = svgFileUrl;
-    fakeDownloadBtn.download = `svgTextTestFile-${currentDownloadTime}`;
-
-    document.body.appendChild(fakeDownloadBtn);
-    fakeDownloadBtn.click();
-    document.body.removeChild(fakeDownloadBtn);
-    this.downloadTime = currentDownloadTime;
   }
 }
 </script>
@@ -593,7 +581,7 @@ export default class TextPersonalize extends Vue {
             :max="3"
             :value="1"
             :step="0.5"
-            @update="updateDesign"
+            @update="updateDesignV3"
           />
           <bar-controller
             :controller-name="'Rotation-controller'"
@@ -602,7 +590,7 @@ export default class TextPersonalize extends Vue {
             :max="360"
             :value="0"
             :step="1"
-            @update="updateDesign"
+            @update="updateDesignV3"
           />
           <button
             type="button"
@@ -611,7 +599,8 @@ export default class TextPersonalize extends Vue {
             @click="updateTemplate"
           />
           <color-picker
-            @change="updateDesign"
+            :design="actives.textDesignV2"
+            @update="updateDesignV3"
           />
           <button
             v-text="'Export SVG'"
